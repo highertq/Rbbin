@@ -1,9 +1,36 @@
 <?php // Example 27-7: login.php
   require_once 'header.php';
-  $error = $user = $pass = "";
   date_default_timezone_set('PRC');
+  $error = "";
+  $user = $_POST['user'];
+  $pass = $_POST['pass'];
+  $verify=$_POST['verification'];
+  echo $verify;
+ //if(isset($_POST['user']) and isset($_POST['pass'])){
+  if($verify=="yes"){
+  $user = sanitizeString($_POST['user']); //过滤 防止注入
+  $pass = sanitizeString($_POST['pass']);
+  $result = queryMySQL("SELECT user,pass FROM members WHERE user='$user' AND pass='$pass'");
+    if ($result->num_rows == 0) {
+    $error = "Invalid login attempt";}
+    else{
+    $_SESSION['user'] = $user;
+    $_SESSION['pass'] = $pass;
+    $thing5 = "log in";
+    $time = time();
+    queryMysql("INSERT INTO log VALUES(NULL,'$user', '$thing5',$time)"); //动作记录到log里面
+    //Header("Location: /members.php?view=$user"); //跳转
+     die("<div class='center'>You are now logged in. Please
+      <a data-transition='slide' href='members.php?view=$user'>click here</a>
+      to continue.</div></div></body></html>");
+    }
+  } else if($verify=="no"){
+      $error = "Please checkout your verification code!";
+  }
+ //}
 echo <<<_END
-      <form method='post' action='login.php'>
+     <!-- <form method='post' action='login.php'> -->
+        <form method="post">
         <div data-role='fieldcontain'>
           <label></label>
           <span class='error'>$error</span>
@@ -14,11 +41,11 @@ echo <<<_END
         </div>
         <div data-role='fieldcontain'>
           <label>Username</label>
-          <input type='text' maxlength='16' name='user' placeholder="请输入账号" value='$user'>
+          <input id="us" type='text' maxlength='16' name='user' placeholder="请输入账号" value=''>
         </div>
         <div data-role='fieldcontain'>
           <label>Password</label>
-          <input type='password' maxlength='16' name='pass' placeholder="请输入密码" value='$pass'>
+          <input id="ps" type='password' maxlength='16' name='pass' placeholder="请输入密码" value=''>
         </div>
         
         <div data-role='fieldcontain'>
@@ -29,7 +56,8 @@ echo <<<_END
          
         <div data-role='fieldcontain'>
           <label></label>
-          <input data-transition='slide' type='submit' value='Login' class="btn">
+          <!-- <input data-transition='slide' type='submit' value='Login' class="btn"> -->
+          <button data-transition='slide' class="btn">Login</button>
         </div>
       </form>
     </div>
@@ -38,41 +66,53 @@ echo <<<_END
 _END;
 ?>
 <script>
-  $(function(){
+  $(document).ready(function(){
     var show_num = [];
-    draw(show_num);
-    $("#canvas").on('click',function(){ //刷新验证码
       draw(show_num);
-    })
-  })
+  $("#canvas").on('click',function(){ //刷新验证码
+      draw(show_num);
+      })
   $(".btn").on('click',function(){
-    var val = $(".input-val").val().toLowerCase();
-    var num = show_num.join("");
+    var val = $(".input-val").val().toLowerCase();//val是用户输入的验证码
+      console.log("val:"+val+"!");
+    var num = show_num.join(""); //num是正确验证码
+      console.log("num:"+num+"!");
+    var user = $("#us").val();
+      console.log("js获得的user:"+user);
+    var pass = $("#ps").val();
+      console.log("js获得的user:"+pass);
+
     if(val==''){ //输入为空
       alert('请输入验证码！');
     }else if(val == num){ //输入正确
-      $(".input-val").val('');
-      draw(show_num);
-      <?php
-        $user = sanitizeString($_POST['user']);
-        $pass = sanitizeString($_POST['pass']);
-        $result = queryMySQL("SELECT user,pass FROM members WHERE user='$user' AND pass='$pass'");
-        if ($result->num_rows == 0) {
-            $error = "Invalid login attempt";
-        }else{
-            $_SESSION['user'] = $user;
-            $_SESSION['pass'] = $pass;
-            $thing5 = "log in";
-            $time = time();
-            queryMysql("INSERT INTO log VALUES(NULL,'$user', '$thing5',$time)");
-            Header("Location: /members.php?view=$user");
-    }
-          ?>
-    }else{ //输入错误
-      $(".input-val").val('');
-      //draw(show_num);
+        $.ajax({
+        url:'login.php',
+        type:'POST',
+        data:{verification:'yes',user:user,pass:pass},
+        success:function(result){
+            console.log("YES—ajax结果:成功");
+        },
+        error:function(msg){
+            alert('Error:'+msg);
+        }
+            });
+        }else{ //输入错误
+        $.ajax({
+            url:'login.php',
+            type:'POST',
+            data:{verification:'no'},
+            success:function(result){
+                console.log("NO—ajax结果:成功");
+            },
+            error:function(msg){
+                alert('Error:'+msg);
+            }
+        });
+        alert("验证码输入错误");
+        draw(show_num);
     }
   })
+    })
   //生成并渲染出验证码图形
   function draw(show_num) {
     var canvas_width=$('#canvas').width();
